@@ -1,0 +1,18 @@
+xezmlm (1.0.2-1) unstable; urgency=low
+
+  * Check if we have existsing mailinglists in '~list', and if so, create
+    a Menubutton with each list, so that we can edit the options of a 
+    existsing mailinglist, which options we get by scanning the tree of
+    the choosen list.
+  * Created a 'delete list' option, so that we can delete the choosen 
+    mailinglist. Remove the '~list/<mailinglist>' directory and any .qmail
+    file in '/var/qmail/alias' pointing to this directory...
+
+ -- Turbo Fredriksson <turbo@debian.org>  Sun, 30 Aug 1998 19:47:24 -0700
+
+xezmlm (1.0.1-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Turbo Fredriksson <turbo@debian.org>  Sun,  2 Aug 1998 00:18:08 -0700
+

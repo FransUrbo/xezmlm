@@ -1,0 +1,13 @@
+Source: xezmlm
+Section: admin
+Priority: optional
+Maintainer: Turbo Fredriksson <turbo@debian.org>
+Standards-Version: 2.4.0.0
+
+Package: xezmlm
+Architecture: any
+Depends: perl, perl-tk
+Description: A xezmlm mailinglist configuration tool for X-Windows.
+ This is a configuration tool for the xezmlm mailing list
+ software, using perl-tk. It'll create the mailinglist
+ with all options choosen with simple Radiobuttons (Yes/No).

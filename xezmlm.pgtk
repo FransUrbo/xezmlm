@@ -1,0 +1,371 @@
+#!/usr/bin/perl -w
+
+# ----------------------
+# $Log: xezmlm.pgtk,v $
+# Revision 1.0.0.1  1998/08/02 06:36:35  turbo
+# This is the first revision of the xezmlm mailinglist creator for XWindows.
+# It is written usin Perl-TK, with a non working version in Perl-GTK in the
+# works.
+#
+#
+
+#
+# relief type: flat, groove, raised, ridge, or sunken
+
+use Gtk;
+use Gtk::Atoms;
+
+init Gtk;
+
+# Some default variables...
+$is_archived               = 1;         # aA
+$is_config                 = 0;         # cC
+$is_digest                 = 0;         # dD
+$is_edit                   = 0;         # eE
+$is_prefix                 = 0;         # fF
+$is_guarded                = 0;         # gG
+$is_indexed                = 1;         # iI
+$is_kill                   = 0;         # kK
+$is_listable               = 0;         # lL
+$is_moderated              = 0;         # mM
+$is_new_text_file          = 0;         # nN
+$is_public_or_private      = 'public';  # pP
+$is_requestable            = 0;         # qQ
+$is_remote_admin           = 0;         # rR
+$is_subscription_moderated = 0;         # sS
+$is_trailers               = 0;         # tT
+$is_user_posts_only        = 0;         # uU
+$is_list_extras            = 0;         # x
+
+# Are we running in a X enviroment?
+# (Check if we have a DISPLAY variable)
+if($ENV{'DISPLAY'}) {
+    main_x();
+    main Gtk;
+} else {
+    printf("Not running in a X enviroment...\n");
+    exit 0;
+}
+
+# ----------------------
+# main_x(void)
+# This is the main X11 routine...
+sub main_x {
+    # Create the main window...
+    $window = new Gtk::Window('toplevel');
+
+    # Configure the Main window...
+    $window->set_name('ezmlm configurator');
+#    $window->iconname('xezmlm');
+
+    $window->signal_connect("destroy"      => \&destroy_window, \$window);
+    $window->signal_connect("delete_event" => \&destroy_window, \$window);
+
+    # -----------------------------------------------------------------
+
+    $box1 = new Gtk::VBox(0, 0);
+    $window->add($box1);
+    $box1->show;
+
+    $box2 = new Gtk::VBox(0, 1);
+    $window->add($box2);
+    $box2->show;
+
+    # Create some frames...
+    $frame_1 = new Gtk::Frame("Frame 1");
+    $box1->pack_start($frame_1, 1, 1, 0);
+    $frame_1->show;
+
+    $frame_2 = new Gtk::Frame("Frame 2");
+    $box2->pack_start($frame_2, 1, 1, 0);
+    $frame_2->show;
+
+    $frame_3 = new Gtk::Frame("Frame 3");
+    $box1->pack_start($frame_3, 1, 1, 0);
+    $frame_3->show;
+
+    $frame_4 = new Gtk::Frame("Frame 4");
+    $box2->pack_start($frame_4, 1, 1, 0);
+    $frame_4->show;
+
+    $frame_3_top = new Gtk::Frame("Frame 3a");
+    $box1->pack_start($frame_3_top, 1, 1, 0);
+    $frame_3_top->show;
+
+    $frame_2_left = new Gtk::Frame("Frame 2a");
+    $box2->pack_start($frame_2_left, 1, 1, 0);
+    $frame_2_left->show;
+
+    $frame_2_middle1 = new Gtk::Frame("Frame 2b");
+    $box1->pack_start($frame_2_middle1, 1, 1, 0);
+    $frame_2_middle1->show;
+
+    $frame_2_middle2 = new Gtk::Frame("Frame 2c");
+    $box2->pack_start($frame_2_middle2, 1, 1, 0);
+    $frame_2_middle2->show;
+
+    $frame_2_right   = new Gtk::Frame("Frame 2d");
+    $box1->pack_start($frame_2_right, 1, 1, 0);
+    $frame_2_right->show;
+
+    # --------
+
+    # Create the Input buttons...
+    foreach $i (0, 1, 2) {
+	&setup_input_gadget($i);
+    }
+#
+#    # Create the check buttons...
+#    foreach $i (0, 1, 2, 3, 4) {
+#	$check{$i} = new Gtk::CheckButton();
+#	$frame_2_left->add($check{$i})->show;
+#    }
+#    foreach $i (5, 6, 7, 8, 9) {
+#	$check{$i} = new Gtk::CheckButton();
+#	$frame_2_middle1->add($check{$i})->show;
+#    }
+#    foreach $i (10, 11, 12, 13, 14) {
+#	$check{$i} = new Gtk::CheckButton();
+#	$frame_2_middle2->add($check{$i})->show;
+#    }
+#    foreach $i (15, 16) {
+#	$check{$i} = new Gtk::CheckButton();
+#	$frame_2_right->add($check{$i})->show;
+#    }
+#
+#    $check{17} = new Gtk::RadioButton();
+#    
+#
+#    $frame_2_right->Radiobutton(-text     => 'Private',
+#				-variable => \$is_public_or_private,
+#				-value    => 'private'
+#				)->pack(-side => 'top', -anchor => 'w');
+#    $frame_2_right->Radiobutton(-text     => 'Public',
+#				-variable => \$is_public_or_private,
+#				-value    => 'public'
+#				)->pack(-side => 'top', -anchor => 'w');
+#
+#    # Create the listboxes...
+#    @listbox_pl = (-side   => 'left',
+#		   -expand => 'yes',
+#		   -fill   => 'x',
+#		   -anchor => 'n'
+#		   );
+#    $frame_3_top->Button( -text    => 'Kills',
+#			     -command => [\&create_listbox, 'kills'])->pack(@listbox_pl);
+#    $frame_3_top->Button(-text    => 'Subscribers',
+#			    -command => [\&create_listbox, 'subscribers'])->pack(@listbox_pl);
+#    $frame_3_top->Button(-text    => 'Hide listboxes',
+#			    -command => [\&create_listbox, 'hide'])->pack(@listbox_pl);
+#
+#    # Create the action buttons...
+#    foreach $i (0, 1) {
+#	$button{$i} = $frame_4->Button();
+#	$button{$i}->pack(-side => 'left', -expand => 'yes', -fill => 'both');
+#    }
+#
+#    # --------
+#
+#    # Configure the input buttons...
+#    $input_l{0}->configure(-text => 'Mailinglist: ');
+#    $input_l{1}->configure(-text => 'Moderator: ')   if( $is_moderated  );
+#    $input_l{2}->configure(-text => 'Config file: ') if( $is_config );
+#
+##   $input_l{1}->configure(-text => 'Moderator: ',
+##			   -command => [\&help, 'input', 'moderator']);
+#
+#    $input_e{0}->configure(-textvariable => \$mailinlist);
+#    $input_e{1}->configure(-textvariable => \$moderator);
+#    $input_e{2}->configure(-textvariable => \$config_file);
+#
+#    # Configure the check buttons...
+#    $i = 0;
+#    $check{$i}->configure(-text     => 'Archived',
+#			  -variable => \$is_archived,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Config',
+#			  -variable => \$is_config,
+#			  -command  => sub{
+#			      if(! $input_f{2} ) {
+#				  &setup_input_gadget(2);
+#				  $input_l{2}->configure(-text => 'Config file: ');
+#			      } else {
+#				  $input_l{2}->destroy; undef $input_l{2};
+#				  $input_e{2}->destroy; undef $input_e{2};
+#				  $input_f{2}->destroy; undef $input_f{2};
+#				  $moderator = "";
+#			      }
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Digest',
+#			  -variable => \$is_digest,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Edit',
+#			  -variable => \$is_edit,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Prefix',
+#			  -variable => \$is_prefix,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Guarded',
+#			  -variable => \$is_guarded,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Indexed',
+#			  -variable => \$is_indexed,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Kill',
+#			  -variable => \$is_kill,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Listable',
+#			  -variable => \$is_listable,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Moderated',
+#			  -variable => \$is_moderated,
+#			  -command  => sub{
+#			      if(! $input_f{1} ) {
+#				  &setup_input_gadget(1);
+#				  $input_l{1}->configure(-text => 'Moderator: ');
+#			      } else {
+#				  $input_l{1}->destroy; undef $input_l{1};
+#				  $input_e{1}->destroy; undef $input_e{1};
+#				  $input_f{1}->destroy; undef $input_f{1};
+#				  $moderator = "";
+#			      }
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'New text file',
+#			  -variable => \$is_new_text_file,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Requests is serviced',
+#			  -variable => \$is_requestable,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Remote admin',
+#			  -variable => \$is_remote_admin,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Subscription moderated', 
+#			  -variable => \$is_subscription_moderated,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'Trailers', 
+#			  -variable => \$is_trailers,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'User posts only',
+#			  -variable => \$is_user_posts_only,
+#			  -command  => sub{
+#			  }); $i++;
+#    $check{$i}->configure(-text     => 'List extras',
+#			  -variable => \$is_list_extras,
+#			  -command  => sub{
+#			  }); $i++;
+#
+#    # Configure the action buttons...
+#    $button{0}->configure(-text => 'Create');
+#    $button{1}->configure(-text => 'Quit', -command => [$window => 'destroy']);
+
+    $window->show;
+}
+
+sub setup_input_gadget {
+    local($number) = @_;
+
+#    # Create the gadgets....
+#    $input_f{$number} = new Gtk::Frame();
+#    $box1->pack_start($input_f{$number}, 1, 1, 0)->show;
+#
+#    $input_l{$number} = new Gtk::Label("Hello label");
+#    $input_l{$number}->show;
+#
+#    $input_e{$number} = new Gtk::Entry();
+#    $box1->pack_start($input_e{$number}, 1, 1, 0)->show;
+#
+#    if( $number != 1 && $number != 2 ) {
+#	$main_inputs->add($input_f{$number})->show;
+#	$input_f{$number}->add($input_l{$number})->show;
+#	$input_f{$number}->add($input_e{$number})->show;
+#    } else {
+#	if($is_moderated || $is_config) {
+#	    $main_inputs->add($input_f{$number})->show;
+#	    $input_f{$number}->add($input_l{$number})->show;
+#	    $input_f{$number}->add($input_e{$number})->show;
+#	} else {
+#	    undef $input_f{$number};
+#	}
+#    }
+}
+
+sub create_listbox {
+    local($type) = @_;
+    my($kill_box);
+
+    $kill_box = 0;
+    $kill_box = 1 if( $listbox_kill );
+    $kill_box = 1 if( $listbox_subs );
+
+    if( $type eq 'hide' ) {
+	if($listbox_kill || $listbox_subs) {
+	    $kill_box = 1;
+	} else {
+	    return;
+	}
+    }
+
+    if( $kill_box ) {
+	$listbox->destroy;
+	$scroll->destroy;
+
+	$frame_3{'middle'}->destroy;
+	$frame_3{'bottom'}->destroy;
+
+	$listbox_subs = 0;
+
+	return if( $type eq 'hide' );
+    }
+
+    $frame_3{'middle'} = $frame_3->Frame;
+    $frame_3{'middle'}->pack(-side => 'top', -expand => 'yes', -fill => 'both');
+    $frame_3{'bottom'}  = $frame_3->Frame;
+    $frame_3{'bottom'}->pack(-side => 'right',  -expand => 'yes', -fill => 'both');
+
+    $frame_3{'middle'}->Label(-text => $type)->pack(-side => 'top');
+    $listbox = $frame_3{'middle'}->Listbox(-setgrid => 1,
+					   -height  => 5,
+					   -font    => 'fixed');
+    $scroll = $frame_3{'middle'}->Scrollbar(-command => [$listbox => 'yview']);
+    $listbox->configure(-yscrollcommand => [$scroll => 'set']);
+    $scroll->pack(-side => 'right', -fill => 'y');
+
+    $listbox->pack(-expand => 'yes', -fill => 'both');
+    $listbox->bind('<Double-Button-1>' => sub{&get_list_entry('user', $listbox)});
+
+    $frame_3{'bottom'}->Button(-text => 'Add')->pack(-side => 'left',  -expand => 'yes', -fill => 'x');
+    $frame_3{'bottom'}->Button(-text => 'Rem')->pack(-side => 'left',  -expand => 'yes', -fill => 'x');
+
+    if( $type eq 'kills' ) {
+	$listbox_kill = 1;
+    } elsif( $type eq 'subscribers' ) {
+	$listbox_subs = 1;
+    }
+}
+
+sub destroy_window {
+    my($widget, $windowref, $w2) = @_;
+
+    $$windowref = undef;
+    $w2 = undef if defined $w2;
+    0;
+}
+
+sub help {
+    local($type, $subject) = @_;
+
+    printf("Help on $type: $subject\n");
+}

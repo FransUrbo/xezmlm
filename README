@@ -1,0 +1,9 @@
+* To install in '/usr/local' just type 'make' or 'make install'.
+  The main binary is installed in '/usr/local/bin/X11'.
+
+* To uninstall program, just type 'make unintall'.
+
+* If you have any bugg reports, any questions etc, please feel free to
+  send me an email at turbo@tripnet.se, or to the mailinglist
+  xezmlm@papadoc.nocrew.org. Any announce (such as CVS checkin etc) is
+  being announced at the xezmlm-announce@papadoc.nocrew.org list.

@@ -1,0 +1,1221 @@
+#!/usr/bin/perl
+
+require 5.002;
+$DEBUG = 0;
+
+# Check if we have the variable XADMIN_DEBUG...
+if($ENV{'XADMIN_DEBUG'}) {
+    $DEBUG = $ENV{'XADMIN_DEBUG'}
+}
+
+# ----------------------
+# $Author: turbo $
+#
+# $Id: xezmlm.ptk,v 1.4 1999/01/12 20:13:15 turbo Exp $
+#
+
+#
+# relief type: flat, groove, raised, ridge, or sunken
+
+&set_defaults();
+
+$FIND_OPTIONS              = "-maxdepth 1 -mindepth 1 -name '[a-zA-Z]*'";
+
+# Are we running in a X enviroment?
+# (Check if we have a DISPLAY variable)
+if($ENV{'DISPLAY'}) {
+    use Tk;
+    require Tk::Dialog;
+
+    &main_x();
+    MainLoop;
+} else {
+    printf("Not running in a X enviroment...\n");
+    exit 1;
+
+    #use Curses;
+    #&main_c();
+}
+
+# ----------------------
+# main_x(void)
+# This is the main X11 routine...
+sub main_x {
+    my($i, $j, %entry);
+
+    # Get the installed mailinglists on the system...
+    &get_lists();
+
+    # Create the main window...
+    $window = MainWindow->new();
+
+    # Configure the Main window...
+    $window->title('ezmlm configurator');
+    $window->iconname('xezmlm');
+
+    # -----------------------------------------------------------------
+
+    (@pl) = (-side   => 'top',
+	     -expand => 'no',
+	     -padx   => 10,
+	     -pady   => 1,
+	     -fill   => 'both'
+    );
+
+    # Create some frames...
+    $frame_1 = $window->Frame(-relief => 'groove', -bd => 2);
+    $frame_2 = $window->Frame(-relief => 'groove', -bd => 2);
+    $frame_3 = $window->Frame(-relief => 'groove', -bd => 2);
+    $frame_4 = $window->Frame(-relief => 'groove', -bd => 2);
+    $frame_1->pack(@pl);
+    $frame_2->pack(@pl);
+    $frame_3->pack(@pl, -expand => 'yes');
+    $frame_4->pack(@pl, -expand => 'yes');
+
+    $frame_2->Label(-text => "See the manual page for 'ezmlm-make' for the meaning of these options...")->pack(-side => 'top');
+    $frame_2->Label(-text => "(The underlined character is the actuall parameter to 'ezmlm-make')")->pack(-side => 'top');
+
+    $frame_2_left    = $frame_2->Frame;
+    $frame_2_middle1 = $frame_2->Frame;
+    $frame_2_middle2 = $frame_2->Frame;
+    $frame_2_right   = $frame_2->Frame;
+    $frame_2_left->pack(   -side => 'left');
+    $frame_2_middle1->pack(-side => 'left');
+    $frame_2_middle2->pack(-side => 'left');
+    $frame_2_right->pack(  -side => 'right', -anchor => 'n');
+
+    $frame_3{'top'} = $frame_3->Frame;
+    $frame_3{'top'}->pack(-side => 'top', -expand => 'yes', -fill => 'both');
+
+    # Prepare the Input gadgets...
+    $main_inputs = $frame_1->Frame;
+    $main_inputs->pack(@pl);
+
+    # --------
+
+    # Create the Input buttons...
+    $mod_no = 4; # Number of the moderator input gadget...
+    foreach $i (0, 1, 2, 3, 4) {
+	&setup_input_gadget($i);
+    }
+
+    # Create the check buttons...
+    foreach $i ( 0,  1,  2,  3,  4,  5,  6) {
+	$check{$i} = $frame_2_left->Checkbutton();
+	$check{$i}->pack(-side => 'top', -anchor => 'w');
+    }
+    foreach $i ( 7,  8,  9, 10, 11, 12, 13) {
+	$check{$i} = $frame_2_middle1->Checkbutton();
+	$check{$i}->pack(-side => 'top', -anchor => 'w');
+    }
+    foreach $i (14, 15, 16, 17) {
+	$check{$i} = $frame_2_middle2->Checkbutton();
+	$check{$i}->pack(-side => 'top', -anchor => 'w');
+    }
+
+    $frame_2_middle2->Radiobutton(-text     => 'Private',
+				  -variable => \$is_public_or_private,
+				  -value    => 'private'
+				  )->pack(-side => 'top', -anchor => 'w');
+    $frame_2_middle2->Radiobutton(-text     => 'Public',
+				  -variable => \$is_public_or_private,
+				  -value    => 'public'
+				  )->pack(-side => 'top', -anchor => 'w');
+
+    # Create the listboxes...
+    @listbox_pl = (-side   => 'left',
+		   -expand => 'yes',
+		   -fill   => 'x',
+		   -anchor => 'n'
+		   );
+    $frame_3{'top'}->Label( -text => "Who is subscribed, who's to be rejected etc?")->pack(-side => 'top');
+    $frame_3{'top'}->Button(-text    => 'Kills',
+			    -command => [\&create_listbox, 'kills'])->pack(@listbox_pl);
+    $frame_3{'top'}->Button(-text    => 'Subscribers',
+			    -command => [\&create_listbox, 'subscribers'])->pack(@listbox_pl);
+    $frame_3{'top'}->Button(-text    => 'Hide listboxes',
+			    -command => [\&create_listbox, 'hide'])->pack(@listbox_pl);
+
+    # Create the action buttons...
+    foreach $i (0, 1, 2, 3) {
+	$button{$i} = $frame_4->Button();
+	$button{$i}->pack(-side => 'left', -expand => 'yes', -fill => 'both');
+    }
+
+    # --------
+
+    # Configure the input buttons...
+    $input_l{0}->configure(-text => 'Hostname: ');
+    $input_l{1}->configure(-text => 'List name: ');
+    $input_l{2}->configure(-text => 'Owner/Admin: ');
+    $input_l{3}->configure(-text => 'Sublist of list: ');
+    if( $is_moderated ) {
+	$input_l{$mod_no}->configure(-text => 'Moderator: '); 
+	$input_e{$mod_no}->configure(-textvariable => \$moderator);
+
+	$input_e{$mod_no}->bind('<Return>' => sub{
+	    if( $moderator !~ /\@/ ) {
+		$moderator .= "\@" . $COMP_NAME;
+	    }
+	});
+    } else {
+	undef $input_l{$mod_no};
+    }
+
+#   $input_l{1}->configure(-text => 'Moderator: ',
+#			   -command => [\&help, 'input', 'moderator']);
+
+
+    &create_menubutton();
+
+    # --------
+
+    $input_e{0}->configure(-textvariable => \$COMP_NAME);
+    $input_e{1}->configure(-textvariable => \$mailinglist);
+    $input_e{2}->configure(-textvariable => \$list_owner);
+    $input_e{3}->configure(-textvariable => \$parent_list);
+    $input_e{$mod_no}->configure(-textvariable => \$moderator);
+
+    $input_e{0}->bind('<Return>' => sub{$input_e{1}->focus});
+    $input_e{1}->bind('<Return>' => sub{$input_e{2}->focus});
+    $input_e{2}->bind('<Return>' => sub{
+	if( $list_owner !~ /\@/ ) {
+	    $list_owner .= "\@" . $COMP_NAME;
+	}
+
+	$input_e{3}->focus;
+    });
+    $input_e{3}->bind('<Return>' => sub{$input_e{0}->focus});
+    $input_e{$mod_no}->bind('<Return>' => sub{
+	if( $moderator !~ /\@/ ) {
+	    $moderator .= "\@" . $COMP_NAME;
+	}
+
+	push(@MODS, $moderator);
+
+	$input_e{0}->focus;
+    });
+
+    # Configure the check buttons...
+    $i = 0;
+    $check{$i}->configure(-text     => 'Archived',            -underline =>  0, -variable => \$is_archived); $i++;
+    $check{$i}->configure(-text     => 'Config',              -underline =>  0, -variable => \$is_config);   $i++;
+    $check{$i}->configure(-text     => 'Digest',              -underline =>  0, -variable => \$is_digest);   $i++;
+    $check{$i}->configure(-text     => 'Reconfigure',         -underline =>  1, -variable => \$is_edit);     $i++;
+    $check{$i}->configure(-text     => 'Prefix subject',      -underline =>  3, -variable => \$is_prefix);   $i++;
+    $check{$i}->configure(-text     => 'Guarded archive',     -underline =>  0, -variable => \$is_guarded);  $i++;
+    $check{$i}->configure(-text     => 'Indexed',             -underline =>  0, -variable => \$is_indexed);  $i++;
+    $check{$i}->configure(-text     => 'Kill',                -underline =>  0, -variable => \$is_kill,
+			  -command  => sub{
+			      # Toggle the state of the 'Kills' button...
+			  }); $i++;
+    $check{$i}->configure(-text     => 'Subscriber listable', -underline => 11, -variable => \$is_listable); $i++;
+    $check{$i}->configure(-text     => 'Message moderation',  -underline =>  8, -variable => \$is_moderated,
+			  -command  => sub{
+			      if(! $input_f{$mod_no} ) {
+				  &setup_input_gadget($mod_no);
+
+				  $input_l{$mod_no}->configure(-text => 'Moderator: ');
+				  $input_e{$mod_no}->configure(-textvariable => \$moderator);
+
+				  $input_e{$mod_no}->focus;
+			      } else {
+				  &remove_moderators();
+
+				  $input_e{1}->focus;
+			      }
+			  }); $i++;
+    $check{$i}->configure(-text     => 'New text file',          -underline => 0, -variable => \$is_new_text_file); $i++;
+    $check{$i}->configure(-text     => 'Requests is serviced',   -underline => 2, -variable => \$is_requestable); $i++;
+    $check{$i}->configure(-text     => 'Remote admin',           -underline => 0, -variable => \$is_remote_admin); $i++;
+    $check{$i}->configure(-text     => 'Subscription moderated', -underline => 0, -variable => \$is_subscription_moderated); $i++;
+    $check{$i}->configure(-text     => 'Add trailers to msg\'s', -underline => 4, -variable => \$is_trailers); $i++;
+    $check{$i}->configure(-text     => 'User posts only',        -underline => 0, -variable => \$is_user_posts_only); $i++;
+    $check{$i}->configure(-text     => 'Accept empty subjects',  -underline => 0, -variable => \$accept_empty_subject); $i++;
+    $check{$i}->configure(-text     => 'List extras',            -underline => 6, -variable => \$is_list_extras); $i++;
+
+    # Configure the action buttons...
+    $button{0}->configure(-text => 'Quit',     -command => [$window => 'destroy']);
+    $button{1}->configure(-text => 'Testmail', -command => [\&test_list],   -state => 'disabled');
+    $button{2}->configure(-text => 'Delete',   -command => [\&delete_list], -state => 'disabled');
+    $button{3}->configure(-text => 'Create',   -command => [\&create_list]);
+
+    # Get host and domainname...
+    &get_computer_name();
+
+    # Focus on the first input gadget...
+    $input_e{1}->focus;
+}
+
+# ----------------------
+# main_c(void)
+# This is the main virtual console routine...
+sub main_c {
+    $window = new Curses;
+    #initscr();
+
+    # Get host and domainname...
+    &get_computer_name();
+
+    # -------------
+
+    cbreak(); noecho();
+
+    # subwin(lines, columns, begin_y, begin_x)
+    $frame = subwin(6, 60, 2, 0);
+
+    attron(A_BOLD);
+    addstr(1, 30, "ezmlm configurator");
+    attrset(A_NORMAL);
+
+    addstr(3, 1, "Hostname:        $COMP_NAME");
+    addstr(4, 1, "List name:       ");
+    addstr(5, 1, "Owner/Admin:     ");
+    addstr(6, 1, "Sublist of list: ");
+    box($frame, '|', '-');
+
+    # -------------
+
+    refresh();
+    sleep(5);
+    endwin();
+}
+
+sub setup_input_gadget {
+    local($number) = @_;
+
+    # Create the gadgets....
+    $input_f{$number} = $main_inputs->Frame(-bd => 1);
+    $input_l{$number} = $input_f{$number}->Label();
+#   $input_l{$number} = $input_f{$number}->Button(-relief => 'flat');
+    $input_e{$number} = $input_f{$number}->Entry(-relief => 'sunken', -width => 40);
+
+    if( $number != $mod_no ) {
+	$input_f{$number}->pack(-side => 'top', -fill => 'x');
+	$input_e{$number}->pack(-side => 'right');
+	$input_l{$number}->pack(-side => 'left');
+    } else {
+	if($is_moderated || $is_config) {
+	    $input_f{$number}->pack(-side => 'top', -fill => 'x');
+	    $input_e{$number}->pack(-side => 'right');
+	    $input_l{$number}->pack(-side => 'left');
+
+	    $input_e{$number}->bind('<Return>' => sub{
+		if( $moderator !~ /\@/ ) {
+		    $moderator .= "\@" . $COMP_NAME;
+		}
+
+		$input_e{1}->focus;
+	    });
+	} else {
+	    undef $input_f{$number};
+	}
+    }
+}
+
+sub create_listbox {
+    local($type) = @_;
+    my($kill_box);
+
+    $kill_box = 0;
+    $kill_box = 1 if( $listbox_kill );
+    $kill_box = 1 if( $listbox_subs );
+
+    if( $type eq 'hide' ) {
+	if($listbox_kill || $listbox_subs) {
+	    $kill_box = 1;
+	} else {
+	    return;
+	}
+    }
+
+    if( $kill_box ) {
+	$listbox->destroy;
+	$scroll->destroy;
+
+	$frame_3{'middle'}->destroy;
+	$frame_3{'bottom'}->destroy;
+
+	$listbox_subs = 0;
+
+	return if( $type eq 'hide' );
+    }
+
+    $frame_3{'middle'} = $frame_3->Frame;
+    $frame_3{'middle'}->pack(-side => 'top',   -expand => 'yes', -fill => 'both');
+    $frame_3{'bottom'}  = $frame_3->Frame;
+    $frame_3{'bottom'}->pack(-side => 'right', -expand => 'yes', -fill => 'both');
+
+    $frame_3{'middle'}->Label(-text => "$type:")->pack(-side => 'top');
+    $listbox = $frame_3{'middle'}->Listbox(-setgrid => 1,
+					   -height  => 5,
+					   -font    => 'fixed');
+    $scroll = $frame_3{'middle'}->Scrollbar(-command => [$listbox => 'yview']);
+    $listbox->configure(-yscrollcommand => [$scroll => 'set']);
+    $scroll->pack(-side => 'right', -fill => 'y');
+
+    $listbox->pack(-expand => 'yes', -fill => 'both');
+    $listbox->bind('<Double-Button-1>' => sub{
+	# Get the whole line...
+	$entry_number = $listbox->index('active');
+
+	# Do we want to edit the subscriber list, or the kill list?
+	if( $listbox_subs ) {
+	    # Edit the subscriber list...
+	    &edit_lists($entry_number, 'edit');
+	} elsif( $listbox_kill ) {
+	    # Edit the kill list...
+	    &edit_lists($entry_number, 'edit');
+	}
+    });
+
+    $frame_3{'bottom'}->Button(-text => 'Add', -command => sub{
+	if( $listbox_subs ) {
+	    &edit_lists($number_of_subs, 'add');
+	} elsif( $listbox_kill ) {
+	    &edit_lists($number_of_kill, 'add');
+	}
+    })->pack(-side => 'left',  -expand => 'yes', -fill => 'x');
+    $frame_3{'bottom'}->Button(-text => 'Rem', -command => sub{
+	if( $listbox_subs ) {
+	    &edit_lists($number_of_subs, 'rem');
+	} elsif( $listbox_kill ) {
+	    &edit_lists($number_of_kill, 'rem');
+	}
+    })->pack(-side => 'left',  -expand => 'yes', -fill => 'x');
+
+    &update_listbox($type);
+}
+
+sub insert_into_menubutton {
+    local($list, $number_1, $number_2) = @_;
+    my($number);
+
+    $entry{$number_2} = $list;
+
+    $number = sprintf("%2d", $number_1);
+
+    $lists->command(-label => "$number. $entry{$number_2}", -command => sub{
+	# Find the menu...
+	$menu = $lists->cget('-menu');
+
+	# Find the sub menu entry...
+	$list_number = $menu->index('active') - 2;
+
+	$mailinglist = $entry{$list_number};
+
+	$button{1}->configure(-state => 'normal');
+	$button{2}->configure(-state => 'normal');
+
+	# Remove the moderator input gadget and clear the moderator variable...
+	&remove_moderators();
+
+	# Clear the listbox, if it is visible...
+	$listbox->delete(0, 'end') if(Exists($listbox));
+
+	# We should set the '-e' option to ezmlm-make, to indicate
+	# that we should reconfigure the list...
+	$is_edit = 1;
+
+	# Get and update the moderator(s) of this list...
+	&update_moderators($mailinglist);
+
+	# Get and update the options...
+	&update_options($mailinglist);
+
+	# Get and update the subscriber list...
+	&update_subscribers($mailinglist);
+
+	# Get and update the kill list...
+	&update_blacklist($mailinglist);
+    });
+}
+
+sub create_menubutton {
+    $lists = $input_f{1}->Menubutton(-width => 6, -text => 'Lists', -underline => 1, -relief => 'raised');
+    $lists->command(-label => "     New list", -command => sub{
+	&set_defaults();
+
+	$button{1}->configure(-state => 'disabled');
+	$button{2}->configure(-state => 'disabled');
+
+	# Remove the moderator input gadget and clear the moderator variable...
+	&remove_moderators();
+
+	# Clear the listbox, if it is visible...
+	$listbox->delete(0, 'end') if(Exists($listbox));
+
+	# We should set the '-e' option to ezmlm-make, to indicate
+	# that we should reconfigure the list...
+	$is_edit = 0;
+    });
+
+    for( $i = 0, $j = 0; $mailinglists{$i}; $i++, $j++ ) {
+	&insert_into_menubutton($mailinglists{$i}, $i, $j);
+    }
+
+    $lists->pack(-side => 'right');
+}
+
+sub create_list {
+    my($params, $ok, $cancel) = ('-', 'Ok', 'Oopps');
+    my($dialog, $button, $entry, $command, $line, $rename);
+
+    $rename = 0;
+
+    if(! $mailinglist ) {
+	# Create the error dialog...
+	$dialog = $window->Dialog(-text           => 'You did not specify any list name to CREATE...',
+				  -bitmap         => 'error',
+				  -default_button => $cancel,
+				  -buttons        => [$cancel]
+				  );
+	$dialog->Show;
+
+	$input_e{1}->focus;
+
+	return;
+    }
+
+    $params .= $is_archived                   ? 'a' : 'A';
+    $params .= $is_config                     ? 'c' : '';
+    $params .= $is_digest                     ? 'd' : 'D';
+    $params .= $is_edit                       ? 'e' : 'E';
+    $params .= $is_prefix                     ? 'f' : 'F';
+    $params .= $is_guarded                    ? 'g' : 'G';
+    $params .= $is_indexed                    ? 'i' : 'I';
+    $params .= $is_kill                       ? 'k' : 'K';
+    $params .= $is_listable                   ? 'l' : 'L';
+    $params .= $is_moderated                  ? 'm' : 'M';
+    $params .= $is_new_text_file              ? 'n' : 'N';
+    $params .= $is_requestable                ? 'q' : 'Q';
+    $params .= $is_remote_admin               ? 'r' : 'R';
+    $params .= $is_subscription_moderated     ? 's' : 'S';
+    $params .= $is_trailers                   ? 't' : 'T';
+    $params .= $is_user_posts_only            ? 'u' : 'U';
+    $params .= $is_list_extras                ? 'x' : '';
+
+    $params .= 'p' if( $is_public_or_private eq 'public');
+    $params .= 'P' if( $is_public_or_private eq 'private');
+
+    $params .= " -0 $parent_list" if($parent_list);
+    $params .= " -5 $list_owner"  if($list_owner);
+
+    $command  = "/usr/bin/ezmlm-make $params $home_list/$mailinglist $home_alias/.qmail-$mailinglist $mailinglist $COMP_NAME";
+    $command .= "; chown -R alias.qmail $home_list/$mailinglist" if(!$DEBUG);
+
+    # Create the list...
+    if(! system($command) ) {
+	# Add the subscribers...
+	foreach $entry (@SUBS) {
+	    &create_subscribers($entry, 'subscribers');
+	}
+
+	# Add the moderators...
+	foreach $entry (@MODS) {
+	    &create_subscribers($entry, 'moderator');
+	}
+
+	if( $accept_empty_subject ) {
+	    # We have to change the 'editor' file to accept empty subjects!
+	    if( open(EDITOR, "$home_list/$mailinglist/editor") ) {
+		if( open(NEW, "> $home_list/$mailinglist/editor.new") ) {
+		    while(! eof(EDITOR) ) {
+			$line = <EDITOR>;
+			chomp($line);
+
+			if( $line =~ /reject/ ) {
+			    ($command, $option) = split(' ', $line);
+			    print NEW "$command -S $option\n";
+			} else {
+			    print NEW "$line\n";
+			}
+		    }
+
+		    close(NEW);
+		    $rename = 1;
+		}
+
+		close(EDITOR);
+	    }
+
+	    if( $rename ) {
+		rename("$home_list/$mailinglist/editor.new", "$home_list/$mailinglist/editor");
+	    }
+	}
+
+	$button{1}->configure(-state => 'normal') if( $listbox_subs );
+	$button{2}->configure(-state => 'normal') if( $listbox_subs );
+
+	$dialog = $window->Dialog(-text           => "The mailing list `$mailinglist' have been successfully created...",
+				  -bitmap         => 'info',
+				  -default_button => $ok,
+				  -buttons        => [$ok]
+				  );
+	$dialog->Show;
+
+	# Remember this mailinglist...
+	$mailinglists{$number_of_lists} = $mailinglist;
+	&insert_into_menubutton($mailinglist, $number_of_lists, $number_of_lists);
+	$number_of_lists++;
+
+	# Undefine, and start with empty values...
+	&set_defaults();
+	$input_e{1}->focus;
+
+	# Clear the listbox, if it is visible...
+	$listbox->delete(0, 'end') if(Exists($listbox));
+    }
+}
+
+sub create_subscribers {
+    local($user, $command) = @_;
+    my($execute, $dialog, $ok);
+    $ok = 'Ok';
+
+    if( $command eq 'subscribers' ) {
+	$execute = "ezmlm-sub $home_list/$mailinglist $user";
+	if( system($execute) ) {
+	    $dialog = $window->Dialog(-text           => "Could not subscribe $user",
+				      -bitmap         => 'error',
+				      -default_button => $ok,
+				      -buttons        => [$ok]
+				      );
+	    $dialog->Show;
+	}
+    } else {
+	$execute = "ezmlm-sub $home_list/$mailinglist/mod $entry";
+	if( system($execute) ) {
+	    $dialog = $window->Dialog(-text           => "Could not add moderator $entry",
+				      -bitmap         => 'error',
+				      -default_button => $ok,
+				      -buttons        => [$ok]
+				      );
+	    $dialog->Show;
+	}
+
+	# Remove this user from the blacklist...
+	$execute = "ezmlm-unsub $home_list/$mailinglist/blacklist $entry";
+	system($execute);
+    }
+
+}
+
+sub delete_list {
+    my($ok, $cancel, $dialog, $command, $i, $file);
+
+    $cancel = 'Oopps';
+    $ok     = 'Ok';
+
+    if(! $mailinglist ) {
+	# Create the error dialog...
+	$dialog = $window->Dialog(-text           => 'You did not specify any list name to DELETE...',
+				  -bitmap         => 'error',
+				  -default_button => $cancel,
+				  -buttons        => [$cancel]
+				  );
+	$dialog->Show;
+
+	$input_e{1}->focus;
+
+	return;
+    }
+
+    # Remove the list directory...
+    $command = "rm -R $home_list/$mailinglist";
+    if( system($command) ) {
+	$dialog = $window->Dialog(-text           => "Could not delete list $mailinglist",
+				  -bitmap         => 'error',
+				  -default_button => $ok,
+				  -buttons        => [$ok]
+				  );
+	$dialog->Show;
+    }
+
+    # ... and the qmail dot files...
+    # (these are links, check to see if the link into the
+    # $home_list/$mailinglist directory)...
+    open(LIST, "/bin/ls -la $home_alias/.qmail-$mailinglist\* |")
+	|| print STDERR "Could not get a list of $home_list/.qmail-$mailinglist*";
+    $i = 0;
+    while(! eof(LIST) ) {
+	$line = <LIST>;
+	chomp($line);
+
+	$link  = (split(' ', $line))[8];
+	$point = (split(' ', $line))[10];
+
+	if( $point =~ /\/$mailinglist\// ) {
+	    push(@LINKS, $link);
+	}
+
+	$i++;
+    }
+    close(LIST);
+
+    # Now, when we have the correct links, delete them one by one...
+    foreach $file (@LINKS) {
+	system("/bin/rm $file");
+    }
+
+    # Remove the entry from the hash, and rearange the variables...
+    undef $mailinglists{$list_number};
+    for( $i = $list_number + 1; $mailinglists{$i}; $i++ ) {
+	$mailinglists{$i - 1} = $mailinglists{$i};
+    }
+    undef $mailinglists{$i};
+    $number_of_lists--;
+
+    # Recreate the mailinglists menubutton...
+    $lists->destroy;
+    &create_menubutton();
+
+    # Start from scratch...
+    &set_defaults();
+}
+
+sub test_list {
+    my($text, $cancel) = ('', 'Oopps');
+
+    if(! $mailinglist || $DEBUG ) {
+	if( $DEBUG ) {
+	    $text = "Can\'t test this list, we are in debug mode...";
+	} else {
+	    $text = 'You did not specify any list name to TEST...';
+	}
+
+	# Create the error dialog...
+	$dialog = $window->Dialog(-text           => $text,
+				  -bitmap         => 'error',
+				  -default_button => $cancel,
+				  -buttons        => [$cancel]
+				  );
+	$dialog->Show;
+
+	$input_e{1}->focus;
+
+	return;
+    }
+
+    if(! $DEBUG ) {
+	open(INJECT, "| /usr/sbin/qmail-inject $mailinglist" )
+	    || die "Could not open qmail-inject, $!";
+	print INJECT "Subject: Just a test.\n\n";
+	print INJECT "This is a test mail to the list $mailinglist.\n";
+	close(INJECT);
+    }
+}
+
+sub edit_lists {
+    local($number, $command) = @_;
+
+    if( ($command eq 'add') || ($command eq 'edit') ) {
+	if( $command eq 'edit' ) {
+	    $number = $listbox->index('active');
+
+	    if( $listbox_subs ) {
+		$list_entry = $SUBS[$number];
+
+		$number_of_subs++;
+	    } elsif( $listbox_kill ) {
+		$list_entry = $KILL[$number];
+		$number_of_kill++;
+	    }
+	} else {
+	    $list_entry = "";
+	}
+
+	if(! Exists($edit_lists_window) ) {
+	    $edit_lists_window = $window->Toplevel;
+
+	    $edit_lists_frame = $edit_lists_window->Frame(-relief => 'groove', -bd => 2);
+	    $edit_lists_frame->pack;
+
+	    $edit_lists_label = $edit_lists_frame->Label();
+	    $edit_lists_label->pack(-side => 'top');
+	}
+
+	if( $listbox_subs ) {
+	    $edit_lists_label->configure(-text => "What is the address of the user you want subscribed on this list?");
+	} elsif( $listbox_kill ) {
+	    $edit_lists_label->configure(-text => "Buu");
+	}
+
+	$edit_lists_entry = $edit_lists_frame->Entry(-relief => 'sunken', -width => 60);
+	$edit_lists_entry->pack;
+	$edit_lists_entry->configure(-textvariable => \$list_entry);
+
+	if( $command eq 'edit' ) {
+	    $edit_lists_entry->bind('<Return>' => sub{
+		# Make sure we have a '@' in the address..
+		if( $list_entry !~ /\@/ ) {
+		    &wrong_email_address();
+		    return;
+		}
+
+		&rem_list_entry();
+		&add_list_entry();
+	    });
+	} else {
+	    $edit_lists_entry->bind('<Return>' => sub{
+		# Make sure we have a '@' in the address..
+		if( $list_entry !~ /\@/ ) {
+		    &wrong_email_address();
+		    return;
+		}
+
+		&add_list_entry();
+	    });
+	}
+
+	$edit_lists_entry->focus;
+    } elsif( $command eq 'rem' ) {
+	&rem_list_entry();
+    }
+}
+
+sub add_list_entry {
+    if( $listbox_subs ) {
+	push(@SUBS, $list_entry);
+
+	$number_of_subs++;
+    } elsif( $listbox_kill ) {
+	push(@KILL, $list_entry);
+
+	$number_of_kill++;
+    }
+
+    $listbox->insert('end', $list_entry);
+    $edit_lists_window->destroy;
+
+    undef $edit_lists_window;
+}
+
+sub rem_list_entry {
+    my($number, $i);
+
+    $number = $listbox->index('active');
+
+    if( $listbox_subs ) {
+	$i = $number;
+	while($SUBS[$i + 1] ) {
+	    $SUBS[$i] = $SUBS[$i + 1];
+	    $i++;
+	}
+	    
+	undef $SUBS[$number];
+    } elsif( $listbox_kill ) {
+	$i = $number;
+	while($KILL[$i + 1] ) {
+	    $KILL[$i] = $KILL[$i + 1];
+	    $i++;
+	}
+	    
+	undef $KILL[$number];
+    }
+
+    $listbox->delete('active', 'active');
+}
+
+sub wrong_email_address {
+    my($dialog, $answer, $add, $cancel) = ('', '', 'Add domain', 'Cancel');
+
+    $dialog = $window->Dialog(-text           => "You must have a \'@\' in the email-address\nShould I add your own domainname?",
+			      -bitmap         => 'error',
+			      -default_button => $cancel,
+			      -buttons        => [$add, $cancel]
+			      );
+    $answer = $dialog->Show;
+
+    if( $answer eq $add ) {
+	$list_entry = $list_entry . "\@" . $COMP_NAME;
+
+	&add_list_entry();
+    } else {
+	undef $list_entry;
+    }
+}
+
+sub get_lists {
+    my($uid, $line, $i, $ml, $key);
+
+    $uid  = getpwnam('list');
+    $home_list = (getpwuid($uid))[7];
+
+    $uid  = getpwnam('alias');
+    $home_alias = (getpwuid($uid))[7];
+
+    if($DEBUG) {
+	$pwd = `pwd`;
+	chomp($pwd);
+	$home_list  = "$pwd/$home_list";
+	$home_alias = "$pwd/$home_alias";
+    } else {
+	$pwd = "";
+    }
+
+    open(FIND, "/usr/bin/find $home_list -type d $FIND_OPTIONS |")
+	|| print STDERR "Error in opening find, $!";
+
+    while(! eof(FIND) ) {
+	$line =  <FIND>;
+	$line =~ s/$home_list\///;
+	chomp($line);
+
+	$ml{$line} = $line;
+    }
+
+    close(FIND);
+
+    # Sort the mailing lists alphabeticly...
+    $i = 0;
+    foreach $key (sort keys %ml) {
+	$mailinglists{$i} = $ml{$key};
+	$i++;
+    }
+    $number_of_lists = $i;
+}
+
+sub get_computer_name {
+    my($file_opened, $domain, $hostname);
+
+    # Open the file with the default domain name...
+    $file_opened = 0;
+    if( -f "/etc/domainname" ) {
+	open(DOMAIN, "/etc/domainname");
+	$file_opened = 1;
+    } elsif( -f "/bin/domainname" ) {
+	open(DOMAIN, "/bin/domainname |");
+	$file_opened = 1;
+    } elsif( -f "/bin/dnsdomainname" ) {
+	open(DOMAIN, "/bin/dnsdomainname |");
+	$file_opened = 1;
+    }
+    
+    if($file_opened) {
+	# Get the first line (the domain name)...
+	$domain = <DOMAIN>;
+	chop( $domain );
+
+	# Close the domain name file...
+	close(DOMAIN);
+    }
+
+    # Find the hostname...
+    if( open(HOST, "/bin/hostname |") ) {
+	$hostname = <HOST>;
+	chop( $hostname );
+	close(HOST);
+    } else {
+	printf("  Could not find the hostname, setting it to 'unset'...\n");
+	$hostname = "unset";
+    }
+
+    $COMP_NAME = "$hostname\.$domain";
+}
+
+sub update_options {
+    local($list) = @_;
+    my($line);
+
+    # Get the domainname for this list...
+    if( -f "$home_list/$list/outhost" ) {
+	open(OUTHOST, "$home_list/$list/outhost")
+	    || print STDERR "Error in opening outhost, $!";
+	$COMP_NAME = <OUTHOST>;
+	close(OUTHOST);
+	chomp($COMP_NAME);
+    }
+
+    # Get the owner of this list...
+    if( -f "$home_list/$list/owner" ) {
+	open(OWNER, "$home_list/$list/owner")
+	    || print STDERR "Error in opening outhost, $!";
+	$list_owner = <OWNER>;
+	close(OWNER);
+	chomp($list_owner);
+	if(! ($list_owner =~ /\@/) ) {
+	    $list_owner .= "\@" . $COMP_NAME;
+	}
+    }
+
+    # Get the motherlist for this list...
+    if( -f "$home_list/$list/sublist" ) {
+	open(SUBLIST, "$home_list/$list/sublist")
+	    || print STDERR "Error in opening sublist, $!";
+	$parent_list = <SUBLIST>;
+	chomp($parent_list);
+	close(SUBLIST);
+    }
+
+    # Find out if this list is requestable...
+    if( -f "$home_list/$list/manager" ) {
+	open(REQUESTS, "$home_list/$list/manager" )
+	    || print STDERR "Error in opening manager, $!";
+	$is_requestable = 0; # Default, no...
+	while(! eof(REQUESTS) ) {
+	    $line = <REQUESTS>;
+	    $is_requestable = 1 if( $line =~ /ezmlm-request/ );
+	}
+	close(REQUESTS);
+    }
+
+    # Other options...
+    $is_archived               = 1 ? -f "$home_list/$list/archived" : 0;
+    #$is_config
+    $is_digest                 = 1 ? -d "$home_list/$list/digest" : 0;
+    #$is_edit                  is set if we are changing a existing list...
+    $is_prefix                 = 1 ? -f "$home_list/$list/prefix" : 0;
+    #$is_guarded
+    $is_indexed                = 1 ? -f "$home_list/$list/indexed" : 0;
+    #$is_kill                  is set in the function 'update_blacklist()'
+    #$is_listable
+    #$is_moderated             is set in the function 'update_moderators()'
+    $is_new_text_file          = 1 ? -d "$home_list/$list/text" : 0;
+    $is_public_or_private      = 'public' ? -f "$home_list/$list/public" : 'private';
+    $is_remote_admin           = 1 ? -f "$home_list/$list/remote" : 0;
+    $is_subscription_moderated = 1 ? -f "$home_list/$list/modsub" : 0;
+    $is_trailers               = 1 ? -f "$home_list/$list/text/trailer" : 0;
+    #$is_user_posts_only
+    #$is_list_extras
+}
+
+sub update_subscribers {
+    local($list) = @_;
+    my($line, $number) = ('', 0);
+
+    undef @SUBS; $number_of_subs = 0;
+
+    # Get subscribers...
+    open(LIST, "/usr/bin/ezmlm-list $home_list/$list |")
+	|| die "Could not get list of subscribers on list '$list', $!\n";
+    while(! eof(LIST) ) {
+	$line = <LIST>;
+	chomp($line);
+
+	push(@SUBS, $line);
+
+	if( Exists($listbox) ) {
+	    $listbox->insert('end', $line);
+	}
+
+	$number++;
+    }
+    close(LIST);
+
+    if( $number ) {
+	$number_of_subs = $number;
+    }
+}
+
+sub update_moderators {
+    local($list) = @_;
+
+    # Get the list moderator, if any...
+    if( -f "$home_list/$list/modpost" ) {
+	undef @MODS; $number_of_mods = 0;
+	@MODS = &get_files_and_content_of_dir("$home_list/$list/mod/subscribes");
+
+	if( $number ) {
+	    $is_moderated = 1;
+	    $moderator = $MODS[0];
+
+	    if( $moderator && !$input_l{$mod_no} ) {
+		&setup_input_gadget($mod_no);
+
+		$input_l{$mod_no}->configure(-text => 'Moderator: ');
+		$input_e{$mod_no}->configure(-textvariable => \$moderator);
+
+		$input_e{$mod_no}->bind('<Return>' => sub{
+		    if( $moderator =~ /\@/ ) {
+			$moderator .= "\@" . $COMP_NAME;
+		    }
+		});
+
+	    }
+	} else {
+	    &remove_moderators();
+	}
+    } else {
+	&remove_moderators();
+    }
+
+    if( $number ) {
+	$number_of_mods = $number;
+    }
+}
+
+sub update_blacklist {
+    local($list) = @_;
+    my($line, $entry);
+
+    undef @KILL; $number_of_kill = 0;
+    @KILL = &get_files_and_content_of_dir("$home_list/$list/blacklist");
+
+    if( Exists($listbox) ) {
+	foreach $entry (@KILL) {
+	    $listbox->insert('end', $entry);
+	}
+    }
+
+    if( $number ) {
+	$number_of_kill = $number;
+    }
+}
+
+sub update_listbox {
+    local($type) = @_;
+    my($entry);
+
+    # Fill the listboxes...
+    if( $type eq 'kills' ) {
+	foreach $entry (@KILL) {
+	    $listbox->insert('end', $entry);
+	}
+
+	$listbox_kill = 1;
+    } elsif( $type eq 'subscribers' ) {
+	foreach $entry (@SUBS) {
+	    $listbox->insert('end', $entry);
+	}
+
+	$listbox_subs = 1;
+    }
+}
+
+sub get_files_and_content_of_dir {
+    local($dir) = @_;
+    my($file, $content, @ENTRIES, $i);
+
+    if( -d "$dir" ) {
+	open(FILES, "/usr/bin/find $dir -type f $FIND_OPTIONS |")
+	    || print STDERR "Error in opening find in $dir, $!";
+
+	$i = 0;
+	while(! eof(FILES) ) {
+	    $file = <FILES>;
+	    chomp($file);
+
+	    if(! open(FILE, "$file") ) {
+		print STDERR "Could not open file $file, $!";
+		return;
+	    }
+
+	    $content = <FILE>;
+	    close(FILE);
+
+	    if( $content ) {
+		chop($content);
+		$content =~ s/^T//;
+
+		$ENTRIES[$i] = $content;
+		$i++;
+	    }
+	}
+
+	close(FILES);
+    }
+
+    if( $i ) {
+	$number = $i-1;
+	return(@ENTRIES);
+    } else {
+	return("");
+    }
+}
+
+sub remove_moderators {
+    if( $input_l{$mod_no} ) {
+	$input_l{$mod_no}->destroy; undef $input_l{$mod_no};
+	$input_e{$mod_no}->destroy; undef $input_e{$mod_no};
+	$input_f{$mod_no}->destroy; undef $input_f{$mod_no};
+	$moderator = "";
+    }
+}
+
+sub set_defaults {
+    # Some default variables...
+    $is_archived               = 1;         # aA
+    $is_config                 = 0;         # cC
+    $is_digest                 = 0;         # dD
+    $is_edit                   = 0;         # eE
+    $is_prefix                 = 0;         # fF
+    $is_guarded                = 0;         # gG
+    $is_indexed                = 1;         # iI
+    $is_kill                   = 0;         # kK
+    $is_listable               = 0;         # lL
+    $is_moderated              = 0;         # mM
+    $is_new_text_file          = 0;         # nN
+    $is_public_or_private      = 'public';  # pP
+    $is_requestable            = 1;         # qQ
+    $is_remote_admin           = 0;         # rR
+    $is_subscription_moderated = 0;         # sS
+    $is_trailers               = 0;         # tT
+    $is_user_posts_only        = 0;         # uU
+    $is_list_extras            = 1;         # x
+
+    $list_owner  = ""; $parent_list = ""; $mailinglist = "";
+    undef @SUBS; $number_of_subs = 0;
+    undef @MODS; $number_of_mods = 0;
+    undef @KILL; $number_of_kill = 0;
+}
+
+sub help {
+    local($type, $subject) = @_;
+
+    printf("Help on $type: $subject\n");
+}
+
+#
+# $Log: xezmlm.ptk,v $
+# Revision 1.4  1999/01/12 20:13:15  turbo
+# * No debuging as default, check the variable XADMIN_DEBUG...
+# * One more config button/option, 'Accept empty subjects'.
+# * If we choose 'Message moderation', we should also configure
+#   the listbox and the corresponding variables...
+# * Swap the 'Create/Quit' buttons. I like it this way instead...
+# * Get any moderators and subscribers of the list... *oups*
+# * Moved all the subscriber creation to it's separate function,
+#   'create_subscribers()'. It was needed in more than one place...
+# * Make sure that we have a 'valid' email-address before we
+#   create the list, if not give a propper error message.
+#
+# Revision 1.2  1998/12/13 09:19:31  cvs
+# * Use the debug variable the other editors use, XADMIN_DEBUG.
+# * Swap the Create/Quit buttons. Make sure it conforms to the other editors.
+#
+# Revision 1.1  1998/12/08 04:00:19  cvs
+# Added xEzmlm to the xAdmin distribution. Soon to come, xQmail...
+#
+# Revision 1.3  1998/08/23 18:10:36  turbo
+# * Rewrote the delete_list() function. We just can't delete
+#   '/var/qmail/alias/.qmail-$mailinglist*', because we might
+#   have a sublist with the same beggining, but a different
+#   ending, for example 'xezmlm' and 'xezmlm-announce'...
+#   With my previous function, both lists would have been
+#   removed... Not god... :)
+#
+# Revision 1.2  1998/08/23 17:29:34  turbo
+# * Moved the initializing of the default variables and the creation of the
+#   mailinglist Menu button to there own functions, so they can be called
+#   before creating a new list.
+# * Added a 'delete list' option, which removes any relevant files, and
+#   also removes any entry in the Menubutton.
+# * Focus on the correct input field, if we want a moderated list or not.
+# * Add the newly created mailinglist to our global list variable, so that
+#   it will show up in the Menubutton.
+# * Disable test mail if we are debugging, it wouldn't do much use, since
+#   we use a 'virtual FS' incase of debugging.
+# * Sort the mailinglist listing alphabeticly.
+#
+# Revision 1.1  1998/08/23 12:18:15  turbo
+# * Search the ~list for configured list and put up a Menu button next to
+#   the 'List name', where we can edit any existing mailing list.
+#   Check any files relevant to any option in this directory, setting
+#   the appropriate option...
+# * Started to add some 'curses' functions, not nearly finished yet.
+#
+# Revision 1.0.0.1  1998/08/02 06:36:35  turbo
+# This is the first revision of the xezmlm mailinglist creator for XWindows.
+# It is written usin Perl-TK, with a non working version in Perl-GTK in the
+# works.

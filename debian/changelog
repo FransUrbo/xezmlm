@@ -1,0 +1,94 @@
+xezmlm (1.0.3-7) frozen unstable; urgency=low
+
+  * If this is a new list, don't specify '-C' if not 'Config' is selected.
+    This breaks 'ezmlm-make' now...
+  * Don't have '-w' to perl, to minimize 'undefined variable' etc
+  * open() return different if it can't open a FILE, or if it can't open
+    a PIPE so a proper 'NOT' have to be for the 'unless( open( ... ) )'.
+  * Change all the 'unless()' to 'if(-f ..)' instead. It was very fluky...
+
+ -- Turbo Fredriksson <turbo@debian.org>  Thu,  8 Jun 2000 15:40:50 +0200
+
+xezmlm (1.0.3-6) unstable; urgency=low
+
+  * Depend on 'ezmlm-idx | ezmlm-src'.
+
+ -- Turbo Fredriksson <turbo@debian.org>  Fri, 30 Jul 1999 14:29:06 +0200
+
+xezmlm (1.0.3-5) unstable; urgency=low
+
+  * Updated the dependecy on perl/perl5. Closes: #41481
+  * Upgraded standards-version to 2.5.1.
+
+ -- Turbo Fredriksson <turbo@debian.org>  Thu, 22 Jul 1999 12:10:33 +0200
+
+xezmlm (1.0.3-4) unstable; urgency=low
+
+  * Fixing dependency problem. The ezmlm package is now called
+    'ezmlm-idx', not 'ezmlm'...
+  * Fixing 'spelling-error-in-description choosen chosen'
+
+ -- Turbo Fredriksson <turbo@debian.org>  Fri, 23 Apr 1999 14:29:33 +0200
+
+xezmlm (1.0.3-3) unstable; urgency=low, closes=31954 31952
+
+  * Fixing typos in description.
+  * Moving to contrib, since xezmlm depends on ezmlm.
+  * Perl script, nothing architecture dependent here
+
+ -- Turbo Fredriksson <turbo@debian.org>  Mon, 18 Jan 1999 08:02:54 +0100
+
+xezmlm (1.0.3-2) unstable; urgency=low
+
+  * Changed description of xezmlm
+
+ -- Turbo Fredriksson <turbo@tripnet.se>  Wed, 13 Jan 1999 16:59:18 +0100
+
+xezmlm (1.0.3-1) unstable; urgency=low
+
+  * Architecture: any (fixes bug #31764)
+  * Fixed some bugs in the 'debian' target in the Makefile
+  * Check if we have existsing mailinglists in '~list', and if so, create
+    a Menubutton with each list, so that we can edit the options of a 
+    existsing mailinglist, which options we get by scanning the tree of
+    the choosen list.
+  * Created a 'delete list' option, so that we can delete the choosen 
+    mailinglist. Remove the '~list/<mailinglist>' directory and any .qmail
+    file in '/var/qmail/alias' pointing to this directory...
+  * No debuging as default, check the variable XADMIN_DEBUG...
+  * One more config button/option, 'Accept empty subjects'.
+  * If we choose 'Message moderation', we should also configure
+    the listbox and the corresponding variables...
+  * Swap the 'Create/Quit' buttons. I like it this way instead...
+  * Get any moderators and subscribers of the list... *oups*
+  * Moved all the subscriber creation to it's separate function,
+    'create_subscribers()'. It was needed in more than one place...
+  * Make sure that we have a 'valid' email-address before we
+    create the list, if not give a propper error message.
+  * Use the debug variable the other editors use, XADMIN_DEBUG.
+  * Swap the Create/Quit buttons. Make sure it conforms to the other editors.
+
+ -- Turbo Fredriksson <turbo@debian.org>  Tue, 12 Jan 1999 21:41:58 +0100
+
+xezmlm (1.0.2-1) unstable; urgency=low
+
+  * Check if we have existsing mailinglists in '~list', and if so, create
+    a Menubutton with each list, so that we can edit the options of a 
+    existsing mailinglist, which options we get by scanning the tree of
+    the choosen list.
+  * Created a 'delete list' option, so that we can delete the choosen 
+    mailinglist. Remove the '~list/<mailinglist>' directory and any .qmail
+    file in '/var/qmail/alias' pointing to this directory...
+
+ -- Turbo Fredriksson <turbo@debian.org>  Sun, 30 Aug 1998 19:47:24 -0700
+
+xezmlm (1.0.1-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Turbo Fredriksson <turbo@debian.org>  Sun,  2 Aug 1998 00:18:08 -0700
+
+Local variables:
+mode: debian-changelog
+add-log-mailing-address: "turbo@debian.org"
+End:

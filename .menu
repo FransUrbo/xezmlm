@@ -1,0 +1,2 @@
+?package(xezmlm):needs="X11" section=Apps/System \
+  title="xEzmlm" command="/usr/X11R6/bin/xezmlm"
